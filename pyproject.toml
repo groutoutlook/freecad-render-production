@@ -1,0 +1,31 @@
+[project]
+name = "freecad-to-png"
+version = "0.3.0"
+description = "Extract PNG screenshots from FreeCAD files (.FCStd)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "groutoutlook"}
+]
+keywords = ["freecad", "png", "screenshot", "ci", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+dependencies = []
+
+[project.scripts]
+freecad-to-png = "freecad-to-png:main"
+
+[project.urls]
+Repository = "https://github.com/groutoutlook/freecad-render-png"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
