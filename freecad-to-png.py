@@ -16,6 +16,7 @@ import argparse
 import os
 import subprocess
 import shutil
+import re
 
 # Default FreeCAD paths (can be overridden with arguments)
 DEFAULT_FREECAD_LIB_PATH = '/usr/lib/freecad-python3/lib'
@@ -44,6 +45,13 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        '-z', '--zoom',
+        type=float,
+        default=1.0,
+        help='Zoom level for the output PNG file (default: 1.0)'
+    )
+
+    parser.add_argument(
         '--freecad-lib-path',
         default=DEFAULT_FREECAD_LIB_PATH,
         help='Path to FreeCAD Python library'
@@ -63,6 +71,8 @@ def parse_arguments():
     
     # HACK: post parsing..
     args = parser.parse_args()
+    if args.zoom <= 0:
+        parser.error('Zoom level must be a positive number.')
 
     if args.output is None:
         input_name = os.path.splitext(os.path.basename(args.input_file))[0]
@@ -76,6 +86,33 @@ def setup_freecad_paths(lib_path, mod_path):
         sys.path.append(lib_path)
     if mod_path and os.path.exists(mod_path):
         sys.path.append(mod_path)
+
+def _scale_camera_parameter(camera_data, parameter, transform):
+    pattern = rf'({parameter}\s+)([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+    def _replacer(match):
+        new_value = transform(float(match.group(2)))
+        return f"{match.group(1)}{new_value}"
+    updated_camera, count = re.subn(pattern, _replacer, camera_data, count=1)
+    return updated_camera, bool(count)
+
+def apply_zoom_to_view(active_view, zoom):
+    if zoom == 1.0:
+        return
+    camera_data = active_view.getCamera()
+    if not camera_data:
+        print('Warning: Unable to fetch camera; skipping zoom.', file=sys.stderr)
+        return
+    scalers = (
+        ('height', lambda v: v / zoom),
+        ('heightAngle', lambda v: v / zoom),
+        ('focalDistance', lambda v: v * zoom),
+    )
+    for parameter, transform in scalers:
+        camera_data, updated = _scale_camera_parameter(camera_data, parameter, transform)
+        if updated:
+            active_view.setCamera(camera_data)
+            return
+    print('Warning: Unable to apply zoom factor on this FreeCAD version.', file=sys.stderr)
 
 ################################################################################
 #                                  MAIN BODY                                   #
@@ -137,7 +174,8 @@ def main():
         # Fit all objects in the view
         # FreeCADGui.SendMsgToActiveView("ViewFit")
         activeView.fitAll()
-        activeView.saveImage(output_png, 1080, 1080, 'Transparent')
+        apply_zoom_to_view(activeView, args.zoom)
+        activeView.saveImage(output_png, 1920, 1080, 'Transparent')
         
         print(f"Successfully saved screenshot to: {args.output}")
         
